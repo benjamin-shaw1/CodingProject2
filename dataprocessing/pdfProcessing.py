@@ -12,6 +12,14 @@ from unstructured.staging.base import dict_to_elements
 from IPython.display import Image
 from io import StringIO
 from lxml import etree
+from langchain_community.vectorstores import chroma
+from langchain_core.documents import Document
+from langchain_openai import OpenAIEmbeddings
+from langchain.prompts.prompt import PromptTemplate
+from langchain_openai import OpenAI
+from langchain.chains import ConverastionalRetrievalChain, LLMChain
+from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+
 
 import chromadb
 
@@ -82,5 +90,21 @@ headers = [el for el in pdf_elements if el.category == "Header"]
 headers[1].to_dict()
 
 pdf_elements = [el for el in pdf_elements if el.category != "Header"]
+
+elements = chunk_by_title(pdf_elements)
+
+document = []
+for element in elements:
+    metadata = element.metadata.to_dict()
+    del metadata["languages"]
+    metadata["source"] = metadata["filename"]
+    document.append(Document(page_content=element.text, metadata=metadata))
+embeddings = OpenAIEmbeddings()
+vectorstore = chroma.from_documents(document,embeddings)
+retriever = vectorstore.as_retriever(
+    search_type = "similarity",
+    search_kwargs={"k":6}
+)
+
 
 
