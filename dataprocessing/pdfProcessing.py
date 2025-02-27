@@ -6,8 +6,8 @@ from unstructured_client.models import shared
 from unstructured_client.models.errors import SDKError
 
 from unstructured.chunking.title import chunk_by_title
-from unstructured.partition.md import partition_md
-from unstructured.partition.pptx import partition_pptx
+#from unstructured.partition.md import partition_md
+#from unstructured.partition.pptx import partition_pptx
 from unstructured.staging.base import dict_to_elements
 from IPython.display import Image
 from io import StringIO
@@ -17,23 +17,25 @@ from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from langchain.prompts.prompt import PromptTemplate
 from langchain_openai import OpenAI
-from langchain.chains import ConverastionalRetrievalChain, LLMChain
+from langchain.chains import ConversationalRetrievalChain, LLMChain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+import panel as pn 
 
 
 import chromadb
 
 from utils import utils
+from utils import upld_file
 
 utils = utils()
 
 api_key = utils.get_api_key(
 )
-api_key = utils.get_api_url()
+#api_key = utils.get_api_url()
 
 s = UnstructuredClient(
-    api_key = utils.get_api_key(),
-    api_key = utils.get_api_url(),
+    api_key = utils.get_api_key()
+    #url_key = utils.get_api_url(),
 )
 Image(filename="physicstest1.pdf",height=400,width=400)
 #Image(filename='',height=400,width=400)
@@ -105,6 +107,47 @@ retriever = vectorstore.as_retriever(
     search_type = "similarity",
     search_kwargs={"k":6}
 )
+template = """You are an AI assistant for answering questions about the document. You are given the following exracted parts of a long document
+and a question. Provide a conversational answer. If you don't know the answer, just say "Hmm?". Don't try to make up an answer.
+Question:{question}
+=========
+{context}
+=========
+Answer in Markdown:"""
+prompt = PromptTemplate(template=template, input_variables=["question","context"])
 
+llm = OpenAI(temperature=0)
 
+doc_chain = load_qa_with_sources_chain(llm, chain_types="map_reduce")
+question_generator_chain = LLMChain(llm=llm, prompt=prompt)
+qa_chain = ConversationalRetrievalChain(
+    retriever=retriever,
+    question_generator=question_generator_chain,
+    combine_docs_chain=doc_chain,
+)
+qa_chain.invoke({
+    "question": "what is the magnitude of the resultant?",
+    "chat_history": []
+})["answer"]
 
+filter_retriever = vectorstore.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k":1,"filter":{"source":filename}}
+)
+filter_chain = ConversationalRetrievalChain(
+    retriever = filter_retriever,
+    question_generator = question_generator_chain,
+    combine_docs_chain=doc_chain,
+    
+)
+filter_chain.invoke(
+    {
+        "question": "How big is the force being applied at a 25 degree angle?",
+        "chat_history": [],
+        "filter": filter,
+    }
+)["answer"]
+
+#pn.extenstion()
+#upld_widget = upld_file()
+#pn.Row(upld_widget.widget_file_upload)
