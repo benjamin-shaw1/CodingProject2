@@ -10,9 +10,14 @@ class utils:
         _ = load_dotenv(find_dotenv())
         return os.getenv("API_Key")
     
+    def get_openapi_key(self):
+        _ = load_dotenv(find_dotenv())
+        return os.getenv("OPENAI_API_KEY")
+    
     def get_api_url(self):
         _ = load_dotenv(find_dotenv())
         return os.getev("API_Url")
+
 class upld_file():
     def __init__(self):
         self.widget_file_upload = pn.widgets.FileInput(accept = '.pdf,.ppt.png.html.pptx', multiple = False)
