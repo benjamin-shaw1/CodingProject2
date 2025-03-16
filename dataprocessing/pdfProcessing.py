@@ -3,11 +3,13 @@ import getpass
 import os
 
 
+import openai
 from unstructured_client import UnstructuredClient
 from unstructured_client.models import shared
 from unstructured.partition.pdf import partition_pdf
 from unstructured_client.models.errors import SDKError
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.callbacks import get_openai_callback
 
 
 
@@ -26,6 +28,7 @@ from langchain.prompts.prompt import PromptTemplate
 from langchain_openai import OpenAI
 from langchain.chains import ConversationalRetrievalChain, LLMChain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+from openai import RateLimitError
 import panel as pn 
 
 
@@ -33,6 +36,8 @@ import chromadb
 
 from utils import utils
 from utils import upld_file
+import backoff  # for exponential backoff
+
 
 
 warnings.filterwarnings('ignore')
@@ -43,11 +48,17 @@ api_key = utils.get_api_key(
 if not os.getenv("OPENAI_API_KEY"):
     os.environ["OPENAI_API_KEY"] = getpass.getpass("Enter your OpenAI API key: ")
 #api_key = utils.get_api_url()
-
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 s = UnstructuredClient(
     api_key
     #url_key = utils.get_api_url(),
 )
+@backoff.on_exception(backoff.expo, openai.RateLimitError, max_time=120, max_tries=10)
+def completions_with_backoff(**kwargs):
+    return client.chat.completions.create(**kwargs)
+
+
+
 
 #Image(filename="physicstest1.pdf",height=400,width=400)
 #Image(filename='',height=400,width=400)
@@ -119,10 +130,13 @@ qa_chain = ConversationalRetrievalChain(
     question_generator=question_generator_chain,
     combine_docs_chain=doc_chain,
 )
-qa_chain.invoke({
-    "question": "Could you summerize this paper?",
-    "chat_history": []
-})["answer"]
+with get_openai_callback() as cb:
+    
+    qa_chain.invoke({
+        "question": "Could you summerize this paper?",
+        "chat_history": []
+    })["answer"]
+    print(cb)
 
 filter_retriever = vectorstore.as_retriever(
     search_type="similarity",
