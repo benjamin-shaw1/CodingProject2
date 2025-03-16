@@ -130,13 +130,14 @@ qa_chain = ConversationalRetrievalChain(
     question_generator=question_generator_chain,
     combine_docs_chain=doc_chain,
 )
-with get_openai_callback() as cb:
+
     
-    qa_chain.invoke({
-        "question": "Could you summerize this paper?",
-        "chat_history": []
-    })["answer"]
-    print(cb)
+query1 = qa_chain.invoke({
+    "question": "Could you summerize this paper?",
+    "chat_history": []
+})
+print(query1)
+    
 
 filter_retriever = vectorstore.as_retriever(
     search_type="similarity",
@@ -148,13 +149,14 @@ filter_chain = ConversationalRetrievalChain(
     combine_docs_chain=doc_chain,
     
 )
-filter_chain.invoke(
+query2 = filter_chain.invoke(
     {
         "question": "What is important about donut?",
         "chat_history": [],
         "filter": filter,
     }
-)["answer"]
+)
+print(query2)
 
 #pn.extenstion()
 #upld_widget = upld_file()
